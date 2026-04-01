@@ -11,6 +11,7 @@ import pyttsx3
 import threading
 import math
 import numpy as np
+import os
 
 # ------------------------------------------------
 # PAGE CONFIG
@@ -93,6 +94,11 @@ image TEXT
 )
 """)
 conn.commit()
+# ------------------------------------------------
+# SETUP IMAGE DIRECTORY
+# ------------------------------------------------
+SAVE_DIR = "hazard_images"
+os.makedirs(SAVE_DIR, exist_ok=True)
 
 # ------------------------------------------------
 # LOAD MODEL & CONSTANTS
@@ -229,7 +235,7 @@ if menu=="📡 Live Detection":
                             # FIXED: Formatted datetime string for SQLite
                             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             severity = "High" if conf > 0.85 else "Low"
-                            img_path = f"detection_{time.time()}.jpg"
+                            img_path = os.path.join(SAVE_DIR, f"detection_{time.time()}.jpg")
                             
                             cv2.imwrite(img_path, frame)
                             

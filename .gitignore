@@ -11,6 +11,7 @@ archive.zip
 *.jpeg
 *.png
 !runs/detect/train2/weights/best.pt
+hazard_images/
 
 # Databases (Optional: keeps your local testing data private)
 database.db

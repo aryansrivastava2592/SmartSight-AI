@@ -1,0 +1,7 @@
+path: ./datasets  # root path of your dataset
+train: train/images
+val: valid/images
+
+# Classes
+names:
+  0: pothole

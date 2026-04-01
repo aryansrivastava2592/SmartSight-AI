@@ -1,0 +1,17 @@
+# Environments
+venv/
+__pycache__/
+
+# Datasets and Media
+datasets/
+raw_data/
+archive.zip
+*.mp4
+*.jpg
+*.jpeg
+*.png
+!runs/detect/train2/weights/best.pt
+
+# Databases (Optional: keeps your local testing data private)
+database.db
+smartsight.db

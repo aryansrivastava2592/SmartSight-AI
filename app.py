@@ -6,7 +6,6 @@ import random
 import plotly.express as px
 from ultralytics import YOLO
 from datetime import datetime
-import pygame
 import time
 import pyttsx3
 import threading
@@ -18,7 +17,7 @@ import numpy as np
 # ------------------------------------------------
 
 st.set_page_config(
-    page_title="AI Road Hazard Detection",
+    page_title="SmartSight AI - Road Hazard Detection",
     layout="wide",
     page_icon="🚗"
 )
@@ -29,39 +28,32 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-
 .stApp{
 background: linear-gradient(-45deg,#020617,#001f3f,#020617,#0f172a);
 background-size: 400% 400%;
 animation: gradientBG 12s ease infinite;
 color:#e6edf3;
 }
-
 @keyframes gradientBG {
 0% {background-position: 0% 50%;}
 50% {background-position: 100% 50%;}
 100% {background-position: 0% 50%;}
 }
-
 h1{
 color:#00e6ff;
 text-shadow:0 0 6px rgba(0,230,255,0.4);
 }
-
 .main-title{
 font-size:48px;
 font-weight:bold;
 }
-
 .subtext{
 font-size:18px;
 opacity:0.85;
 }
-
 section[data-testid="stSidebar"]{
 background:#0f172a;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -72,14 +64,12 @@ background:#0f172a;
 st.markdown("""
 <marquee behavior="scroll" direction="left" scrollamount="8"
 style="font-size:18px;color:#00e6ff;font-weight:bold;">
-
 🚗 Drive safe — road accidents claim over 1.19 million lives every year • 
 ⚠️ Speeding increases crash risk dramatically • 
 🛣️ Poor road conditions cause thousands of accidents worldwide • 
 👀 Always stay alert for potholes and obstacles • 
 🛑 Defensive driving saves lives • 
 🚦 AI-based road monitoring can reduce accidents significantly
-
 </marquee>
 """, unsafe_allow_html=True)
 
@@ -102,11 +92,10 @@ lon REAL,
 image TEXT
 )
 """)
-
 conn.commit()
 
 # ------------------------------------------------
-# LOAD MODEL & CONSTANTS (From prev.txt)
+# LOAD MODEL & CONSTANTS
 # ------------------------------------------------
 
 @st.cache_resource
@@ -114,10 +103,9 @@ def load_yolo_model():
     return YOLO("runs/detect/train2/weights/best.pt")
 
 model = load_yolo_model()
-hazards = ["pothole", "rock", "stone", "debris", "obstacle"]
 
 # ------------------------------------------------
-# VOICE ALERT & HUD (From prev.txt)
+# VOICE ALERT & HUD 
 # ------------------------------------------------
 
 def speak_warning(text):
@@ -144,7 +132,7 @@ def draw_hud(frame, angle):
 # SIDEBAR NAVIGATION
 # ------------------------------------------------
 
-st.sidebar.title("🚗 AI Road Safety System")
+st.sidebar.title("🚗 SmartSight AI System")
 
 menu = st.sidebar.radio(
     "Navigation",
@@ -162,7 +150,6 @@ menu = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🖥 System Health")
-
 st.sidebar.success("Camera Active")
 st.sidebar.info("AI Model Running")
 
@@ -199,25 +186,17 @@ except:
 if menu=="📡 Live Detection":
 
     st.markdown('<div class="main-title">🚗 Live Hazard Detection</div>',unsafe_allow_html=True)
-
-    st.markdown(
-    '<div class="subtext">AI system monitoring road hazards in real time using computer vision.</div>',
-    unsafe_allow_html=True
-    )
+    st.markdown('<div class="subtext">AI system monitoring road hazards in real time using computer vision.</div>', unsafe_allow_html=True)
 
     frame_window=st.image([])
-
     cap=cv2.VideoCapture(0)
 
     radar_angle = 0
     last_speech_time = 0
     last_count_time = 0
-    last_detected_object = None
 
     while True:
-
         ret,frame=cap.read()
-
         if not ret:
             st.error("Camera not detected")
             break
@@ -229,24 +208,27 @@ if menu=="📡 Live Detection":
             for box in result.boxes:
                 conf = float(box.conf[0])
                 
-                # Confidence threshold from prev.txt
-                if conf > 0.5:
+                # FIXED: Raised confidence threshold to prevent false positives
+                if conf > 0.75:
                     cls = int(box.cls[0])
                     label = model.names[cls]
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
 
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 255), 2)
-                    cv2.putText(frame, f"{label} {conf:.2f}", (x1, y1 - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+                    # FIXED: Strictly look for the trained class
+                    if label == "pothole":
+                        x1, y1, x2, y2 = map(int, box.xyxy[0])
 
-                    if label in hazards:
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 255), 2)
+                        cv2.putText(frame, f"{label} {conf:.2f}", (x1, y1 - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+
                         now = time.time()
 
                         # 3-second delay logic for DB insertion
                         if (now - last_count_time > 3.0):
                             last_count_time = now
-                            timestamp = datetime.now()
-                            severity = "High" if conf > 0.7 else "Low"
+                            # FIXED: Formatted datetime string for SQLite
+                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            severity = "High" if conf > 0.85 else "Low"
                             img_path = f"detection_{time.time()}.jpg"
                             
                             cv2.imwrite(img_path, frame)
@@ -258,10 +240,7 @@ if menu=="📡 Live Detection":
                             """, (timestamp,label,conf,severity,img_path))
                             conn.commit()
 
-                            # Toast Notification
-                            if label != last_detected_object:
-                                last_detected_object = label
-                                st.toast(f"🚨 Hazard Detected: {label}", icon="⚠️")
+                            st.toast(f"🚨 Hazard Detected: {label}", icon="⚠️")
 
                         # Voice Alert Logic (4s delay)
                         if (now - last_speech_time > 4):
@@ -272,11 +251,9 @@ if menu=="📡 Live Detection":
                         cv2.putText(frame, "!!! HAZARD !!!", (w//2 - 100, 50),
                                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
 
-        # Draw HUD from prev.txt
         draw_hud(frame, radar_angle)
         radar_angle = (radar_angle + 15) % 360
 
-        # Convert to RGB for Streamlit rendering
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame_window.image(frame_rgb, channels="RGB")
 
@@ -296,41 +273,21 @@ elif menu=="📊 AI Hazard Analytics":
         df["timestamp"]=pd.to_datetime(df["timestamp"])
         df["date"]=df["timestamp"].dt.date
 
-        selected_date=st.date_input(
-        "Select Date for Analysis",
-        value=datetime.now()
-        )
-
+        selected_date=st.date_input("Select Date for Analysis", value=datetime.now().date())
         filtered=df[df["date"]==selected_date]
-
         st.markdown("---")
 
-        potholes=filtered[
-        filtered["object_type"].str.contains("pothole",case=False,na=False)
-        ]
-
-        pothole_count=len(potholes)
-
-        small_objects=filtered[
-        ~filtered["object_type"].str.contains("pothole",case=False,na=False)
-        ]
-
-        small_object_count=len(small_objects)
+        pothole_count = len(filtered[filtered["object_type"].str.contains("pothole",case=False,na=False)])
 
         graph_data=pd.DataFrame({
-        "Hazard Type":["Potholes","Other Objects"],
-        "Count":[pothole_count,small_object_count]
+        "Hazard Type":["Potholes"],
+        "Count":[pothole_count]
         })
 
-        fig=px.bar(
-        graph_data,
-        x="Hazard Type",
-        y="Count",
-        color="Hazard Type",
-        title=f"Hazard Counts on {selected_date}"
-        )
+        fig=px.bar(graph_data, x="Hazard Type", y="Count", color="Hazard Type", title=f"Hazard Counts on {selected_date}")
 
-        st.plotly_chart(fig,use_container_width=True)
+        # FIXED: Updated for modern Streamlit layout arguments
+        st.plotly_chart(fig)
 
 # ------------------------------------------------
 # DETECTION HISTORY
@@ -350,17 +307,16 @@ elif menu=="🕒 Detection History":
         total_pages=(total_rows//rows_per_page)+1
 
         page=st.number_input("Page",1,total_pages,1)
-
         start=(page-1)*rows_per_page
         end=start+rows_per_page
 
         page_df=df.iloc[start:end]
-
         cols=st.columns(4)
 
         for i,row in page_df.iterrows():
             try:
-                cols[i%4].image(row["image"],use_column_width=True)
+                # FIXED: Removed deprecated argument
+                cols[i%4].image(row["image"])
             except:
                 pass
 
@@ -389,7 +345,6 @@ elif menu=="⚙ Admin Control Panel":
         st.markdown("---")
 
         score=max(0,100-len(df[df["severity"]=="High"]))
-
         st.subheader("Road Safety Score")
         st.progress(score/100)
         st.success(f"Safety Score : {score}/100")
